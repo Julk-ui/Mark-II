@@ -1,0 +1,322 @@
+mt5:
+  login: 68238343
+  password: Colombia123*
+  server: RoboForex-Pro
+  path: C:\Program Files\RoboForex - MetaTrader 5\terminal64.exe
+data:
+  symbol: EURUSD
+  timeframe: D1
+  n_bars: 1500
+  use_cache: true
+  cache_expiry_hours: 24
+  additional_symbols:
+  - GBPUSD
+  - US500
+data_cleaning:
+  handle_missing: ffill
+  outlier_method: iqr
+  outlier_threshold: 3.0
+  handle_outliers: cap
+  remove_duplicates: true
+  validate_ohlc: true
+  min_valid_ratio: 0.9
+eda:
+  enabled: true
+  output_dir: outputs/eda
+  price_col: Close
+  plots:
+    price_series: true
+    returns_distribution: true
+    qq_plot: true
+    acf_pacf: true
+    rolling_volatility: true
+    seasonal_decomposition: true
+  acf_lags: 40
+  rolling_windows:
+  - 20
+  - 60
+  - 120
+  seasonal_period: 7
+features:
+  returns:
+    enabled: true
+    periods:
+    - 1
+    - 5
+    - 10
+  technical_indicators:
+    enabled: true
+    indicators:
+    - sma_20
+    - sma_50
+    - ema_12
+    - ema_26
+    - rsi_14
+    - macd
+    - bollinger_bands
+    - atr_14
+  lag_features:
+    enabled: true
+    columns:
+    - Close
+    - Volume
+    lags:
+    - 1
+    - 2
+    - 3
+    - 5
+    - 10
+models:
+- name: RandomWalk
+  enabled: true
+  params:
+    d: !!python/object/apply:numpy._core.multiarray.scalar
+    - &id001 !!python/object/apply:numpy.dtype
+      args:
+      - f8
+      - false
+      - true
+      state: !!python/tuple
+      - 3
+      - <
+      - null
+      - null
+      - null
+      - -1
+      - -1
+      - 0
+    - !!binary |
+      AAAAAAAA+H8=
+    p: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    q: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    daily_seasonality: .nan
+    seasonality_mode: .nan
+    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    weekly_seasonality: .nan
+    yearly_seasonality: .nan
+    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    dropout: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    epochs: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    units: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    window: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+- name: ARIMA
+  enabled: true
+  params:
+    d: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAAA=
+    p: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
+    q: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
+    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    daily_seasonality: .nan
+    seasonality_mode: .nan
+    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    weekly_seasonality: .nan
+    yearly_seasonality: .nan
+    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    dropout: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    epochs: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    units: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    window: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+- name: PROPHET
+  enabled: true
+  params:
+    d: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    p: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    q: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      mpmZmZmZqT8=
+    daily_seasonality: false
+    seasonality_mode: multiplicative
+    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA8D8=
+    weekly_seasonality: true
+    yearly_seasonality: false
+    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    dropout: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    epochs: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    units: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    window: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+- name: LSTM
+  enabled: true
+  params:
+    d: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    p: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    q: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    daily_seasonality: .nan
+    seasonality_mode: .nan
+    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+H8=
+    weekly_seasonality: .nan
+    yearly_seasonality: .nan
+    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAQEA=
+    dropout: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      mpmZmZmZyT8=
+    epochs: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAASUA=
+    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      /Knx0k1iUD8=
+    units: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAUEA=
+    window: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAPkA=
+backtest:
+  enabled: true
+  initial_train: 800
+  step: 60
+  horizon: 1
+  target: Return_1
+  metrics:
+  - mae
+  - rmse
+  - hit_rate
+  threshold_pips: 12.0
+  pip_size: 0.0001
+output:
+  dir: outputs
+  save_predictions: true
+  save_models: true
+  save_plots: true
+  formats:
+  - csv
+  - excel
+  - pdf
+logging:
+  enabled: true
+  level: ERROR
+  to_file: true
+  file_path: logs/trading.log
+  to_console: true
+execution:
+  mode: eda
+  parallel: false
+  n_jobs: -1
+validation:
+  enabled: true
+  method: time_series_split
+  n_splits: 5
+  test_size: 0.2

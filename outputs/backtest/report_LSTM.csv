@@ -1,0 +1,2 @@
+model,batch_size,dropout,epochs,learning_rate,units,window,rmse,mae,hit_rate
+LSTM,32,0.2,50,0.001,64,30,0.003909,0.003021,58.333333

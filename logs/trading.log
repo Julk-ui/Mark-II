@@ -1,0 +1,157 @@
+2025-11-11 23:56:52 | INFO     | ============================================================
+2025-11-11 23:56:52 | INFO     | TRADING PIPELINE INICIADO
+2025-11-11 23:56:52 | INFO     | ============================================================
+2025-11-11 23:56:52 | INFO     | 📁 Directorios de trabajo configurados
+2025-11-11 23:56:52 | INFO     | 🚀 Ejecutando modo: EDA
+2025-11-11 23:56:52 | INFO     | 
+============================================================
+2025-11-11 23:56:52 | INFO     | MODO: ANÁLISIS EXPLORATORIO (EDA)
+2025-11-11 23:56:52 | INFO     | ============================================================
+
+2025-11-11 23:56:52 | INFO     | 📥 PASO 1: CARGA DE DATOS
+2025-11-11 23:56:52 | INFO     | ------------------------------------------------------------
+2025-11-11 23:56:52 | INFO     | ✓ Datos cargados: 1500 barras
+2025-11-11 23:56:52 | INFO     | ✓ Rango: 2020-02-05 00:00:00 → 2025-11-12 00:00:00
+2025-11-11 23:56:52 | INFO     | ✅ Validación completada
+
+2025-11-11 23:56:53 | INFO     | 🧹 PASO 2: LIMPIEZA DE DATOS
+2025-11-11 23:56:53 | INFO     | ------------------------------------------------------------
+2025-11-11 23:56:53 | INFO     | ============================================================
+2025-11-11 23:56:53 | INFO     | REPORTE DE LIMPIEZA DE DATOS
+2025-11-11 23:56:53 | INFO     | ============================================================
+2025-11-11 23:56:53 | INFO     | Shape original: (1500, 6)
+2025-11-11 23:56:53 | INFO     | Shape final:    (1500, 6)
+2025-11-11 23:56:53 | INFO     | Pérdida datos:  0.00%
+2025-11-11 23:56:53 | INFO     | 
+2025-11-11 23:56:53 | INFO     | Pasos ejecutados:
+2025-11-11 23:56:53 | INFO     | ============================================================
+2025-11-11 23:56:53 | INFO     | 
+
+2025-11-11 23:56:53 | INFO     | ⚙️  PASO 3: INGENIERÍA DE FEATURES
+2025-11-11 23:56:53 | INFO     | ------------------------------------------------------------
+2025-11-11 23:56:53 | INFO     | ✓ Retornos agregados: períodos [1, 5, 10]
+2025-11-11 23:56:53 | INFO     | ✓ Indicadores técnicos agregados
+2025-11-11 23:56:53 | INFO     | ✓ Lags agregados para Close
+2025-11-11 23:56:53 | INFO     | ✓ Lags agregados para Volume
+2025-11-11 23:56:53 | INFO     | ✓ Features totales: 34
+2025-11-11 23:56:53 | INFO     | ✅ Ingeniería de features completada
+
+2025-11-11 23:56:53 | INFO     | 📊 PASO 4: ANÁLISIS EXPLORATORIO (EDA)
+2025-11-11 23:56:53 | INFO     | ------------------------------------------------------------
+2025-11-11 23:57:11 | INFO     | ✅ EDA completado
+2025-11-11 23:57:11 | INFO     | 📄 Reporte guardado en: outputs/eda
+2025-11-11 23:57:11 | INFO     | 📊 Gráficos generados: 7
+
+2025-11-11 23:57:11 | INFO     | 💾 Datos procesados guardados: outputs\EURUSD_processed.csv
+2025-11-11 23:57:11 | INFO     | 💾 Datos procesados guardados: outputs\EURUSD_processed.pkl
+2025-11-11 23:57:12 | INFO     |   • Hoja 'Raw Data' guardada con 1500 filas y 6 columnas.
+2025-11-11 23:57:12 | INFO     |   • Hoja 'Cleaned Data' guardada con 1500 filas y 6 columnas.
+2025-11-11 23:57:13 | INFO     |   • Hoja 'Features Data' guardada con 1500 filas y 34 columnas.
+2025-11-11 23:57:14 | INFO     | 💾 Reporte Excel con fases de datos guardado en: outputs\EURUSD_data_stages.xlsx
+2025-11-11 23:57:14 | INFO     | 
+✅ MODO EDA COMPLETADO
+2025-11-12 09:33:31 | INFO     | ============================================================
+2025-11-12 09:33:31 | INFO     | TRADING PIPELINE INICIADO
+2025-11-12 09:33:31 | INFO     | ============================================================
+2025-11-12 09:33:31 | INFO     | 📁 Directorios de trabajo configurados
+2025-11-12 09:33:31 | INFO     | 🚀 Ejecutando modo: BACKTEST
+2025-11-12 09:33:31 | INFO     | 
+============================================================
+2025-11-12 09:33:31 | INFO     | MODO: BACKTESTING
+2025-11-12 09:33:31 | INFO     | ============================================================
+
+2025-11-12 09:57:04 | INFO     | ============================================================
+2025-11-12 09:57:04 | INFO     | TRADING PIPELINE INICIADO
+2025-11-12 09:57:04 | INFO     | ============================================================
+2025-11-12 09:57:04 | INFO     | 📁 Directorios de trabajo configurados
+2025-11-12 09:57:04 | INFO     | 🚀 Ejecutando modo: BACKTEST
+2025-11-12 09:57:04 | INFO     | 
+============================================================
+2025-11-12 09:57:04 | INFO     | MODO: BACKTESTING
+2025-11-12 09:57:04 | INFO     | ============================================================
+
+2025-11-12 09:57:04 | INFO     | PASO 1: CARGANDO DATOS
+2025-11-12 09:57:04 | INFO     | ------------------------------------------------------------
+2025-11-12 10:14:36 | INFO     | ============================================================
+2025-11-12 10:14:36 | INFO     | TRADING PIPELINE INICIADO
+2025-11-12 10:14:36 | INFO     | ============================================================
+2025-11-12 10:14:36 | INFO     | 📁 Directorios de trabajo configurados
+2025-11-12 10:14:36 | INFO     | 🚀 Ejecutando modo: BACKTEST
+2025-11-12 10:14:36 | INFO     | 
+============================================================
+2025-11-12 10:14:36 | INFO     | MODO: BACKTESTING
+2025-11-12 10:14:36 | INFO     | ============================================================
+
+2025-11-12 10:14:36 | INFO     | PASO 1: CARGANDO DATOS
+2025-11-12 10:14:36 | INFO     | ------------------------------------------------------------
+2025-11-12 10:14:36 | INFO     | ✓ Datos cargados: 1500 filas, 6 columnas.
+2025-11-12 10:14:36 | INFO     | PASO 2: LIMPIANDO DATOS
+2025-11-12 10:14:36 | INFO     | ------------------------------------------------------------
+2025-11-12 10:14:36 | INFO     | ✓ Datos limpios: 1500 filas restantes.
+2025-11-12 10:14:36 | INFO     | PASO 3: GENERANDO FEATURES
+2025-11-12 10:14:36 | INFO     | ------------------------------------------------------------
+2025-11-12 10:14:36 | INFO     | ✓ Features generadas. Total columnas: 8
+2025-11-12 10:14:36 | INFO     | 튜 PASO 4: INICIANDO BÚSQUEDA DE HIPERPARÁMETROS
+2025-11-12 10:14:36 | INFO     | ------------------------------------------------------------
+2025-11-12 10:14:36 | INFO     | 
+🔥 Procesando modelo: ARIMA
+2025-11-12 10:14:36 | INFO     |   -> Probando combinación 1/18: {'d': 0, 'p': 1, 'q': 0}
+2025-11-12 10:32:58 | INFO     | ============================================================
+2025-11-12 10:32:58 | INFO     | TRADING PIPELINE INICIADO
+2025-11-12 10:32:58 | INFO     | ============================================================
+2025-11-12 10:32:58 | INFO     | 📁 Directorios de trabajo configurados
+2025-11-12 10:32:58 | INFO     | 🚀 Ejecutando modo: BACKTEST
+2025-11-12 10:32:58 | INFO     | 
+============================================================
+2025-11-12 10:32:58 | INFO     | MODO: BACKTESTING
+2025-11-12 10:32:58 | INFO     | ============================================================
+
+2025-11-12 10:32:58 | INFO     | PASO 1: CARGANDO DATOS
+2025-11-12 10:32:58 | INFO     | ------------------------------------------------------------
+2025-11-12 10:32:58 | INFO     | ✓ Datos cargados: 1500 filas, 6 columnas.
+2025-11-12 10:32:58 | INFO     | PASO 2: LIMPIANDO DATOS
+2025-11-12 10:32:58 | INFO     | ------------------------------------------------------------
+2025-11-12 10:32:58 | INFO     | ✓ Datos limpios: 1500 filas restantes.
+2025-11-12 10:32:58 | INFO     | PASO 3: GENERANDO FEATURES
+2025-11-12 10:32:58 | INFO     | ------------------------------------------------------------
+2025-11-12 10:32:58 | INFO     | ✓ Features generadas. Total columnas: 8
+2025-11-12 10:32:58 | INFO     | 튜 PASO 4: INICIANDO BÚSQUEDA DE HIPERPARÁMETROS
+2025-11-12 10:32:58 | INFO     | ------------------------------------------------------------
+2025-11-12 10:32:58 | INFO     | 
+🔥 Procesando modelo: ARIMA
+2025-11-12 10:32:58 | INFO     |   -> Probando combinación 1/18: {'d': 0, 'p': 1, 'q': 0}
+2025-11-12 10:33:03 | INFO     |     - Métricas: {'rmse': np.float64(0.004179), 'mae': 0.003517, 'hit_rate': np.float64(51.428571)}
+2025-11-12 10:33:03 | INFO     |   -> Probando combinación 2/18: {'d': 0, 'p': 1, 'q': 1}
+2025-11-12 10:33:09 | INFO     |     - Métricas: {'rmse': np.float64(0.004176), 'mae': 0.003515, 'hit_rate': np.float64(54.285714)}
+2025-11-12 10:33:09 | INFO     |   -> Probando combinación 3/18: {'d': 0, 'p': 1, 'q': 2}
+2025-11-12 10:33:18 | INFO     |     - Métricas: {'rmse': np.float64(0.004187), 'mae': 0.003526, 'hit_rate': np.float64(54.285714)}
+2025-11-12 10:33:18 | INFO     |   -> Probando combinación 4/18: {'d': 0, 'p': 2, 'q': 0}
+2025-11-12 10:33:26 | INFO     |     - Métricas: {'rmse': np.float64(0.004186), 'mae': 0.003525, 'hit_rate': np.float64(57.142857)}
+2025-11-12 10:33:26 | INFO     |   -> Probando combinación 5/18: {'d': 0, 'p': 2, 'q': 1}
+2025-11-12 10:33:37 | INFO     |     - Métricas: {'rmse': np.float64(0.004135), 'mae': 0.003493, 'hit_rate': np.float64(42.857143)}
+2025-11-12 10:33:37 | INFO     |   -> Probando combinación 6/18: {'d': 0, 'p': 2, 'q': 2}
+2025-11-12 10:33:56 | INFO     |     - Métricas: {'rmse': np.float64(0.004168), 'mae': 0.003507, 'hit_rate': np.float64(42.857143)}
+2025-11-12 10:33:56 | INFO     |   -> Probando combinación 7/18: {'d': 0, 'p': 5, 'q': 0}
+2025-11-12 10:34:18 | INFO     |     - Métricas: {'rmse': np.float64(0.004223), 'mae': 0.003547, 'hit_rate': np.float64(45.714286)}
+2025-11-12 10:34:18 | INFO     |   -> Probando combinación 8/18: {'d': 0, 'p': 5, 'q': 1}
+2025-11-12 10:34:39 | INFO     |     - Métricas: {'rmse': np.float64(0.004222), 'mae': 0.003547, 'hit_rate': np.float64(42.857143)}
+2025-11-12 10:34:39 | INFO     |   -> Probando combinación 9/18: {'d': 0, 'p': 5, 'q': 2}
+2025-11-12 10:35:05 | INFO     |     - Métricas: {'rmse': np.float64(0.004134), 'mae': 0.003493, 'hit_rate': np.float64(42.857143)}
+2025-11-12 10:35:05 | INFO     |   -> Probando combinación 10/18: {'d': 1, 'p': 1, 'q': 0}
+2025-11-12 10:35:10 | INFO     |     - Métricas: {'rmse': np.float64(0.005674), 'mae': 0.004153, 'hit_rate': np.float64(42.857143)}
+2025-11-12 10:35:10 | INFO     |   -> Probando combinación 11/18: {'d': 1, 'p': 1, 'q': 1}
+2025-11-12 10:35:16 | INFO     |     - Métricas: {'rmse': np.float64(0.004631), 'mae': 0.00362, 'hit_rate': np.float64(48.571429)}
+2025-11-12 10:35:16 | INFO     |   -> Probando combinación 12/18: {'d': 1, 'p': 1, 'q': 2}
+2025-11-12 10:35:27 | INFO     |     - Métricas: {'rmse': np.float64(0.004391), 'mae': 0.003497, 'hit_rate': np.float64(45.714286)}
+2025-11-12 10:35:27 | INFO     |   -> Probando combinación 13/18: {'d': 1, 'p': 2, 'q': 0}
+2025-11-12 10:35:32 | INFO     |     - Métricas: {'rmse': np.float64(0.005194), 'mae': 0.004032, 'hit_rate': np.float64(40.0)}
+2025-11-12 10:35:33 | INFO     |   -> Probando combinación 14/18: {'d': 1, 'p': 2, 'q': 1}
+2025-11-12 10:35:47 | INFO     |     - Métricas: {'rmse': np.float64(0.004301), 'mae': 0.003479, 'hit_rate': np.float64(45.714286)}
+2025-11-12 10:35:47 | INFO     |   -> Probando combinación 15/18: {'d': 1, 'p': 2, 'q': 2}
+2025-11-12 10:35:58 | INFO     |     - Métricas: {'rmse': np.float64(0.004444), 'mae': 0.003503, 'hit_rate': np.float64(45.714286)}
+2025-11-12 10:35:58 | INFO     |   -> Probando combinación 16/18: {'d': 1, 'p': 5, 'q': 0}
+2025-11-12 10:36:10 | INFO     |     - Métricas: {'rmse': np.float64(0.004584), 'mae': 0.003661, 'hit_rate': np.float64(45.714286)}
+2025-11-12 10:36:10 | INFO     |   -> Probando combinación 17/18: {'d': 1, 'p': 5, 'q': 1}
+2025-11-12 10:36:43 | INFO     |     - Métricas: {'rmse': np.float64(0.004344), 'mae': 0.003509, 'hit_rate': np.float64(54.285714)}
+2025-11-12 10:36:43 | INFO     |   -> Probando combinación 18/18: {'d': 1, 'p': 5, 'q': 2}
+2025-11-12 10:37:00 | INFO     |     - Métricas: {'rmse': np.float64(0.004389), 'mae': 0.003532, 'hit_rate': np.float64(54.285714)}

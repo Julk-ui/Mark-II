@@ -155,3 +155,27 @@
 2025-11-12 10:36:43 | INFO     |     - Métricas: {'rmse': np.float64(0.004344), 'mae': 0.003509, 'hit_rate': np.float64(54.285714)}
 2025-11-12 10:36:43 | INFO     |   -> Probando combinación 18/18: {'d': 1, 'p': 5, 'q': 2}
 2025-11-12 10:37:00 | INFO     |     - Métricas: {'rmse': np.float64(0.004389), 'mae': 0.003532, 'hit_rate': np.float64(54.285714)}
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:30:35 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable
+2025-11-12 16:46:31 | ERROR    | LSTM Error: 'int' object is not subscriptable

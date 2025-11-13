@@ -1,2 +1,2 @@
 model,rmse,mae,hit_rate
-RandomWalk,0.008554,0.004331,75.0
+RandomWalk,0.007768,0.005844,58.333333

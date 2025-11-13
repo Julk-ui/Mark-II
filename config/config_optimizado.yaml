@@ -7,7 +7,7 @@ data:
   symbol: EURUSD
   timeframe: D1
   n_bars: 1500
-  use_cache: true
+  use_cache: false
   cache_expiry_hours: 24
   additional_symbols:
   - GBPUSD
@@ -70,7 +70,7 @@ models:
 - name: RandomWalk
   enabled: true
   params:
-    d: !!python/object/apply:numpy._core.multiarray.scalar
+    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
     - &id001 !!python/object/apply:numpy.dtype
       args:
       - f8
@@ -87,205 +87,62 @@ models:
       - 0
     - !!binary |
       AAAAAAAA+H8=
-    p: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    q: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
     daily_seasonality: .nan
     seasonality_mode: .nan
     seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
     - *id001
     - !!binary |
       AAAAAAAA+H8=
+    use_lagged_regressors: .nan
     weekly_seasonality: .nan
     yearly_seasonality: .nan
-    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    dropout: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    epochs: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    units: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    window: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
 - name: ARIMA
-  enabled: true
-  params:
-    d: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAAAA=
-    p: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAAEA=
-    q: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAAEA=
-    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    daily_seasonality: .nan
-    seasonality_mode: .nan
-    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    weekly_seasonality: .nan
-    yearly_seasonality: .nan
-    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    dropout: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    epochs: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    units: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    window: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
+  enabled: false
+  param_grid:
+    p:
+    - 1
+    - 2
+    - 5
+    d:
+    - 0
+    - 1
+    q:
+    - 0
+    - 1
+    - 2
 - name: PROPHET
   enabled: true
   params:
-    d: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    p: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    q: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
     changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
     - *id001
     - !!binary |
-      mpmZmZmZqT8=
+      exSuR+F6hD8=
     daily_seasonality: false
-    seasonality_mode: multiplicative
+    seasonality_mode: additive
     seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
     - *id001
     - !!binary |
-      AAAAAAAA8D8=
+      mpmZmZmZuT8=
+    use_lagged_regressors: true
     weekly_seasonality: true
     yearly_seasonality: false
-    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    dropout: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    epochs: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    units: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    window: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
 - name: LSTM
-  enabled: true
-  params:
-    d: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    p: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    q: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    changepoint_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    daily_seasonality: .nan
-    seasonality_mode: .nan
-    seasonality_prior_scale: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAA+H8=
-    weekly_seasonality: .nan
-    yearly_seasonality: .nan
-    batch_size: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAQEA=
-    dropout: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      mpmZmZmZyT8=
-    epochs: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAASUA=
-    learning_rate: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      /Knx0k1iUD8=
-    units: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAUEA=
-    window: !!python/object/apply:numpy._core.multiarray.scalar
-    - *id001
-    - !!binary |
-      AAAAAAAAPkA=
+  enabled: false
+  param_grid:
+    window:
+    - 30
+    units:
+    - 64
+    dropout:
+    - 0.2
+    epochs:
+    - 50
+    batch_size:
+    - 32
+    learning_rate:
+    - 0.001
 backtest:
-  enabled: true
+  enabled: false
   initial_train: 800
   step: 60
   horizon: 1

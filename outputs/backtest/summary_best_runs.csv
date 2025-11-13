@@ -1,5 +1,3 @@
-model,rmse,mae,hit_rate,d,p,q,changepoint_prior_scale,daily_seasonality,seasonality_mode,seasonality_prior_scale,weekly_seasonality,yearly_seasonality,batch_size,dropout,epochs,learning_rate,units,window
-ARIMA,0.003804,0.003209,25.0,0.0,2.0,2.0,,,,,,,,,,,,
-LSTM,0.004551,0.003887,25.0,,,,,,,,,,32.0,0.2,50.0,0.001,64.0,30.0
-PROPHET,6e-06,5e-06,100.0,,,,0.05,False,multiplicative,1.0,True,False,,,,,,
-RandomWalk,0.008554,0.004331,75.0,,,,,,,,,,,,,,,
+model,rmse,mae,hit_rate,changepoint_prior_scale,daily_seasonality,seasonality_mode,seasonality_prior_scale,use_lagged_regressors,weekly_seasonality,yearly_seasonality
+PROPHET,0.008151,0.006373,50.0,0.01,False,additive,0.1,True,True,False
+RandomWalk,0.007768,0.005844,58.333333,,,,,,,

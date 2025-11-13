@@ -14,7 +14,7 @@ data:
   symbol: "EURUSD"
   timeframe: "D1"  # D1, H1, H4, M15, etc.
   n_bars: 1500
-  use_cache: true
+  use_cache: false
   cache_expiry_hours: 24
   
   # Símbolos adicionales (para análisis multi-activo)
@@ -85,7 +85,7 @@ models:
     # Modelo base sin parámetros
 
   - name: ARIMA
-    enabled: true
+    enabled: false
     # Rejilla de parámetros para Grid Search.
     # El pipeline probará todas las combinaciones posibles.
     param_grid:
@@ -104,9 +104,10 @@ models:
       yearly_seasonality: [false]
       weekly_seasonality: [true]
       daily_seasonality: [false]
+      use_lagged_regressors: [true] # <-- AÑADIR ESTA LÍNEA
     
   - name: LSTM
-    enabled: true
+    enabled: false
     param_grid:
       window: [30]              # Ventana de lookback
       units: [64]          # Neuronas en capa LSTM
@@ -117,7 +118,7 @@ models:
 
 # --- BACKTESTING ---
 backtest:
-  enabled: true
+  enabled: false
   initial_train: 800          # Datos para entrenamiento inicial
   step: 60                    # Paso de rolling window (aumentado)
   horizon: 1                  # Horizonte de predicción

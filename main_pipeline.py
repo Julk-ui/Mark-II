@@ -4,7 +4,15 @@
 Pipeline principal del proyecto de Trading Algorítmico.
 Integra todos los módulos: Conexión, Limpieza, EDA y Modelos.
 """
+
+
 from __future__ import annotations
+
+import debugpy
+debugpy.listen(("localhost", 5680))
+print("Esperando debugger… Conéctate desde VS Code.")
+debugpy.wait_for_client()
+
 import sys, os
 
 # --- Supresión de Warnings de librerías ---
@@ -27,7 +35,7 @@ from data.data_cleaner import DataCleaner, FeatureEngineer
 from utils.metrics import calculate_all_metrics
 from models.arima_model import ArimaModel
 from models.prophet_model import ProphetModel
-from models.lstm_model import LSTMModel
+from models.lstm_model import LSTMModel # Asegúrate que este archivo exista
 from models.random_walk_model import RandomWalkModel
 # Agrega aquí otros modelos que crees
 
@@ -138,6 +146,8 @@ class TradingPipeline:
             self._run_backtest_mode()
         elif mode == "production":
             self._run_production_mode()
+        elif mode == "clear_cache":
+            self._run_clear_cache_mode()
         else:
             raise ValueError(f"Modo no soportado: {mode}")
     
@@ -382,6 +392,16 @@ class TradingPipeline:
             if len(X_test) == 0: continue
 
             # Entrenar y predecir
+            # --- NUEVO: Log para depurar datos de entrada al modelo ---
+            if self.logger.isEnabledFor(20): # 20 es el nivel de INFO
+                nan_in_train = X_train.isnull().sum().sum()
+                self.logger.info(
+                    f"    -> Ventana {i-initial_train_size}: "
+                    f"X_train shape={X_train.shape}, "
+                    f"y_train len={len(y_train)}, "
+                    f"NaNs en X_train={nan_in_train}"
+                )
+            # --- FIN NUEVO ---
             prediction = self._train_and_predict(model_name, params, X_train, y_train, X_test)
             
             if prediction is not None:
@@ -396,7 +416,7 @@ class TradingPipeline:
         model_map = {
             "RandomWalk": RandomWalkModel,
             "ARIMA": ArimaModel,
-            "PROPHET": ProphetModel,
+            "PROPHET": ProphetModel, # Ahora apunta a la nueva clase
             "LSTM": LSTMModel,
             # "RandomForest": RandomForestModel # Podrías crear este archivo también
         }
@@ -484,6 +504,26 @@ class TradingPipeline:
                 return model_config
         return None
 
+    def _run_clear_cache_mode(self) -> None:
+        """
+        Modo para limpiar los archivos de caché de datos.
+        """
+        self.logger.info("\n" + "="*60)
+        self.logger.info("MODO: LIMPIEZA DE CACHÉ")
+        self.logger.info("="*60 + "\n")
+
+        data_config = self.config.get("data", {})
+        mt5_config = self.config.get("mt5", {})
+        
+        # No es necesario conectar a MT5, solo instanciar el loader
+        # para acceder a su método de limpieza.
+        data_loader = DataLoader(mt5_config=mt5_config)
+        
+        symbol_to_clear = data_config.get("symbol")
+        self.logger.info(f"Limpiando caché para el símbolo: {symbol_to_clear}...")
+        data_loader.clear_cache(symbol=symbol_to_clear)
+        self.logger.info("\n✅ MODO LIMPIEZA DE CACHÉ COMPLETADO")
+
     # --- MÉTODOS AUXILIARES DEL PIPELINE ---
 
     def _load_data(self) -> pd.DataFrame:
@@ -550,6 +590,16 @@ class TradingPipeline:
                     df_features = FeatureEngineer.add_lag_features(df_features, col=col, lags=lag_config.get("lags", []))
                     self.logger.info(f"  -> Lags agregados para la columna: '{col}'")
 
+        # --- NUEVO: Log para inspeccionar NaNs después de la generación ---
+        nan_counts = df_features.isnull().sum()
+        nan_counts = nan_counts[nan_counts > 0].sort_values(ascending=False)
+        if not nan_counts.empty:
+            self.logger.info("  -> Conteos de valores NaN generados por las features:")
+            # Usamos print para asegurar que se muestre completo sin truncar
+            print(nan_counts.to_string())
+        else:
+            self.logger.info("  -> No se generaron valores NaN en este paso.")
+        # --- FIN NUEVO ---
         self.logger.info(f"✓ Features generadas. Total columnas: {df_features.shape[1]}.")
         return df_features
 
@@ -592,7 +642,8 @@ class TradingPipeline:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline de Trading Algorítmico.")
-    parser.add_argument("--mode", type=str, default="eda", choices=["eda", "train", "backtest", "production"],
+    parser.add_argument("--mode", type=str, default="eda", 
+                        choices=["eda", "train", "backtest", "production", "clear_cache"],
                         help="Modo de ejecución del pipeline.")
     parser.add_argument("--config", type=str, default="config/config.yaml",
                         help="Ruta al archivo de configuración YAML.")

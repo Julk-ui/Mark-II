@@ -351,12 +351,7 @@ class TradingPipeline:
         target_col = backtest_config.get("target", "Return_1")
 
         # --- Mejora en el manejo de NaNs ---
-        # 1. Eliminar filas donde el TARGET es NaN (crucial)
         df_processed = df_features.dropna(subset=[target_col])
-
-        # 2. Rellenar NaNs restantes en las FEATURES para no perder datos
-        # bfill() primero para los NaNs iniciales, ffill() para los intermedios.
-        df_processed = df_processed.bfill().ffill()
 
         features_cols = [col for col in df_features.columns if col != target_col]
         y = df_processed[target_col]
@@ -376,12 +371,12 @@ class TradingPipeline:
             train_end = i
             test_end = i + 1  # Predecir un paso a la vez
 
-            X_train, X_test = X.iloc[:train_end], X.iloc[train_end:test_end]
-            y_train, y_test = y.iloc[:train_end], y.iloc[train_end:test_end]
+            # --- CORRECCIÓN DATA LEAKAGE ---
+            # El rellenado de NaNs debe hacerse DENTRO del bucle sobre el set de entrenamiento
+            X_train_raw, X_test = X.iloc[:train_end], X.iloc[train_end:test_end]
+            X_train = X_train_raw.bfill().ffill().fillna(0)  # Rellenar NaNs solo en train
+            y_train, y_test = y.iloc[:train_end], y.iloc[train_end:test_end] # y_test se usa para las métricas
 
-            if len(X_test) == 0: continue
-
-            # Entrenar y predecir
             prediction = self._train_and_predict(model_name, params, X_train, y_train, X_test)
             
             if prediction is not None:

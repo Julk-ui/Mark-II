@@ -7,6 +7,9 @@ Incluye manejo de regresores externos con rezago para evitar data leakage.
 from __future__ import annotations
 import pandas as pd
 from prophet import Prophet
+import pickle
+import joblib
+from pathlib import Path
 from .base_model import BaseModel
 
 class ProphetModel(BaseModel):
@@ -86,3 +89,197 @@ class ProphetModel(BaseModel):
         except Exception as e:
             self.logger.error(f"Prophet Error: {e}")
             return [0] * (len(X_test) if X_test is not None else 1)
+        
+        # === Persistencia del modelo Prophet ===
+
+    def save_model(self, model_path: str | Path) -> None:
+        if not hasattr(self, "model_") or self.model_ is None:
+            raise RuntimeError("Prophet no tiene un modelo entrenado en memoria.")
+        model_path = Path(model_path)
+        joblib.dump(
+            {
+                "model": self.model_,
+                "regressor_cols": getattr(self, "regressor_cols", []),
+            },
+            model_path
+        )
+        self.logger.info(f"[PROPHET] Modelo guardado en: {model_path}")
+
+    def load_model(self, model_path: str | Path) -> None:
+        model_path = Path(model_path)
+        data = joblib.load(model_path)
+        self.model_ = data["model"]
+        self.regressor_cols = data.get("regressor_cols", [])
+        self._is_fitted = True
+        self.logger.info(f"[PROPHET] Modelo cargado desde: {model_path}")
+
+    def predict_loaded(self, X_all: pd.DataFrame | None = None) -> list[float]:
+        """
+        Usa el modelo Prophet ya cargado para predecir el siguiente retorno.
+
+        - X_all: dataframe de features con índice datetime.
+        - Si el modelo se entrenó con regresores extra, tratamos de usarlos;
+          si faltan algunos en X_all, se loguea un warning y se rellena con 0.0.
+        """
+        # 1) Verificar que el modelo está cargado
+        if not getattr(self, "_is_fitted", False) or self.model_ is None:
+            raise RuntimeError("[PROPHET] predict_loaded llamado sin que el modelo esté cargado.")
+
+        if X_all is None or X_all.empty:
+            self.logger.error("[PROPHET] X_all vacío al predecir en producción.")
+            return []
+
+        # 2) Determinar qué regresores espera Prophet
+        if hasattr(self.model_, "extra_regressors"):
+            expected_regs = list(self.model_.extra_regressors.keys())
+        else:
+            expected_regs = []
+
+        # Intersección: solo usamos los regresores que existen en X_all
+        available_regs = [c for c in expected_regs if c in X_all.columns]
+        missing_regs = [c for c in expected_regs if c not in X_all.columns]
+
+        if missing_regs:
+            self.logger.warning(
+                f"[PROPHET] Regressors faltantes en producción (se rellenan con 0.0): {missing_regs}"
+            )
+
+        # 3) Construir dataframe de predicción con la última fila
+        last_timestamp = X_all.index[-1]
+        df_fcst = pd.DataFrame({"ds": [last_timestamp]})
+
+        # Asignar los valores de los regresores disponibles
+        for reg in available_regs:
+            df_fcst[reg] = X_all[reg].iloc[-1]
+
+        # Para los regresores que faltan, crear la columna con 0.0
+        for reg in missing_regs:
+            df_fcst[reg] = 0.0
+
+        # 4) Ejecutar la predicción con Prophet
+        try:
+            forecast = self.model_.predict(df_fcst)
+        except Exception as e:
+            self.logger.error(f"[PROPHET] Error en predict_loaded: {e}")
+            return []
+
+        # 5) Usar el último yhat como predicción de retorno
+        yhat = float(forecast["yhat"].iloc[-1])
+        return [yhat]
+
+        """
+        Usa el modelo Prophet ya cargado para predecir el siguiente retorno.
+
+        - X_all: dataframe de features (incluye 'Open', 'Close', etc.) con índice datetime.
+        """
+
+        if self.model is None:
+            raise RuntimeError("[PROPHET] predict_loaded llamado sin que el modelo esté cargado.")
+
+        if X_all is None or X_all.empty:
+            self.logger.error("[PROPHET] X_all vacío al predecir en producción.")
+            return []
+
+        # 1) Recuperar la lista de regresores que Prophet espera
+        expected_regs = list(self.model.extra_regressors.keys())
+        self.logger.debug(f"[PROPHET] Regressors esperados: {expected_regs}")
+
+        # 2) Construir el dataframe future con índice de fechas + columnas de regresores
+        #    Tomamos la ÚLTIMA fila (la más reciente) para predecir 1 paso adelante.
+        X_last = X_all.tail(1).copy()
+
+        # Asegurarnos de que haya una columna 'ds' con las fechas
+        if "ds" in X_last.columns:
+            future = X_last.copy()
+        else:
+            # El índice debe ser datetime
+            future = X_last.reset_index().rename(columns={X_last.index.name or "index": "ds"})
+
+        # 3) Verificar que todos los regresores existan en future
+        missing = [r for r in expected_regs if r not in future.columns]
+        if missing:
+            self.logger.error(
+                f"[PROPHET] Faltan estos regresores en future_df: {missing}. "
+                "Revisa que _generate_features conserve esas columnas."
+            )
+            return []
+
+        # 4) Dejar sólo ds + regresores, en el orden correcto
+        cols = ["ds"] + expected_regs
+        future = future[cols]
+
+        # Rellenar posibles NaN
+        future = future.ffill().bfill()
+
+        # 5) Predecir con el modelo Prophet cargado
+        try:
+            forecast = self.model.predict(future)
+        except Exception as e:
+            self.logger.error(f"[PROPHET] Error en predict_loaded: {e}")
+            return []
+
+        # Usamos el último yhat como predicción de retorno
+        yhat = float(forecast["yhat"].iloc[-1])
+        return [yhat]
+
+        """
+        Usa el modelo Prophet ya cargado para predecir el próximo retorno.
+        Tomamos la última fecha del índice y los últimos valores de los regresores.
+        """
+        if not getattr(self, "_is_fitted", False):
+            raise RuntimeError("Prophet no está cargado/entrenado. Llama antes a load_model().")
+
+        if X_all is None or X_all.empty:
+            self.logger.error("[PROPHET] X_all vacío al predecir en producción.")
+            return []
+
+        last_timestamp = X_all.index[-1]
+        future = pd.DataFrame({"ds": [last_timestamp]})
+
+        for col in getattr(self, "regressor_cols", []):
+            future[col] = X_all[col].iloc[-1]
+
+        forecast = self.model_.predict(future)
+        # Asumimos que la variable objetivo es el retorno a 1 paso (yhat)
+        yhat = forecast["yhat"].iloc[-1]
+        return [float(yhat)]
+    
+    def train_and_save(
+        self,
+        y_train: pd.Series,
+        X_train: pd.DataFrame | None,
+        model_name: str,
+        models_dir: str | Path | None = None,
+    ):
+        """
+        Entrena Prophet con todos los datos y guarda:
+        - el modelo Prophet pickled (.pkl)
+        con sus parámetros y columnas.
+        """
+        # 1) Carpeta de salida
+        if models_dir is None:
+            models_dir = Path("outputs") / "models"
+        models_dir = Path(models_dir)
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        # 2) Entrenar usando toda la serie
+        #    train_and_predict debe crear self.model (instancia de Prophet)
+        self.train_and_predict(
+            y_train=y_train,
+            X_train=X_train,
+            X_test=None,
+        )
+
+        # 3) Guardar modelo + metadatos
+        model_path = models_dir / f"{model_name}.pkl"
+        artifact = {
+            "model_class": self.__class__.__name__,
+            "params": self.params,
+            "model": self.model,   # instancia de Prophet
+            "target_name": getattr(y_train, "name", "y"),
+            "feature_names": list(X_train.columns) if X_train is not None else None,
+        }
+        joblib.dump(artifact, model_path)
+
+        if getattr(self, "logger", None) is not None:
+            self.logger.info(f"    ✅ Modelo Prophet guardado en: {model_path}")

@@ -7,13 +7,12 @@ Integra todos los módulos: Conexión, Limpieza, EDA y Modelos.
 
 
 from __future__ import annotations
-
 import debugpy
 debugpy.listen(("localhost", 5680))
 print("Esperando debugger… Conéctate desde VS Code.")
 debugpy.wait_for_client()
-
 import sys, os
+from typing import Any
 
 # --- Supresión de Warnings de librerías ---
 import warnings
@@ -36,7 +35,7 @@ from utils.metrics import calculate_all_metrics
 from models.arima_model import ArimaModel
 from models.prophet_model import ProphetModel
 from models.lstm_model import LSTMModel # Asegúrate que este archivo exista
-from models.random_walk_model import RandomWalkModel
+from models.random_walk_model import MomentumModel
 # Agrega aquí otros modelos que crees
 
 from eda.exploratory_analysis import ExploratoryAnalysis
@@ -55,12 +54,36 @@ class TradingPipeline:
         self.config, self.config_path = self._load_config(config_path)
         self._setup_logging()
         self._setup_directories()
+        self._df_features_last_backtest = None
         
         # Componentes
         self.data_loader: DataLoader | None = None
         self.data_cleaner: DataCleaner | None = None
         self.feature_engineer: FeatureEngineer | None = None
         self.eda: ExploratoryAnalysis | None = None
+    
+    def _save_backtest_detail(self, model_name: str, df_bt: pd.DataFrame) -> None:
+        """
+        Guarda el detalle del mejor backtest para cada modelo.
+        Crea CSV y, opcionalmente, Excel con señales, precios y pips.
+        """
+        if df_bt is None or df_bt.empty:
+            return
+
+        output_dir = Path(self.config.get("output", {}).get("dir", "outputs")) / "backtest"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        csv_path = output_dir / f"{model_name}_best_backtest_detail.csv"
+        df_bt.to_csv(csv_path)
+        self.logger.info(f"    💾 Detalle de backtest guardado en: {csv_path}")
+
+        # Si quieres también Excel
+        if "excel" in self.config.get("output", {}).get("formats", []):
+            xlsx_path = output_dir / f"{model_name}_best_backtest_detail.xlsx"
+            with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
+                df_bt.to_excel(writer, sheet_name="backtest_detail")
+            self.logger.info(f"    💾 Detalle de backtest (Excel) guardado en: {xlsx_path}")
+
     
     def _load_config(self, config_path: str) -> tuple[Dict[str, Any], str]:
         """Carga configuración desde YAML"""
@@ -146,6 +169,8 @@ class TradingPipeline:
             self._run_backtest_mode()
         elif mode == "production":
             self._run_production_mode()
+        elif mode == "test":
+            self._run_test_mode()  # NUEVO
         elif mode == "clear_cache":
             self._run_clear_cache_mode()
         else:
@@ -190,25 +215,62 @@ class TradingPipeline:
         self.logger.info("MODO: ENTRENAMIENTO DE MODELOS")
         self.logger.info("="*60 + "\n")
         
-        # 1-3. Cargar, limpiar y features
+        # --- PASO 1: Carga, Limpieza y Generación de Features ---
         df = self._load_data()
         df_clean = self._clean_data(df)
         df_features = self._generate_features(df_clean)
+
+        # --- PASO 2: División en Train y Test ---
+        self.logger.info("PASO 2: DIVIDIENDO DATOS EN TRAIN Y TEST")
+        self.logger.info("-" * 60)
+        val_config = self.config.get("validation", {})
+        test_size = val_config.get("test_size", 0.2)
         
-        # 4. Entrenar modelos
-        self.logger.info("🔧 Entrenando modelos...")
-        # TODO: Implementar entrenamiento de modelos
+        # Asegurarse de que no haya NaNs en el target antes de dividir
+        target_col = self.config.get("backtest", {}).get("target", "Return_1")
+        df_features = df_features.dropna(subset=[target_col])
+
+        split_index = int(len(df_features) * (1 - test_size))
+        df_train = df_features.iloc[:split_index]
+        df_test = df_features.iloc[split_index:]
+        self.logger.info(f"✓ Datos de entrenamiento: {len(df_train)} filas")
+        self.logger.info(f"✓ Datos de prueba (hold-out): {len(df_test)} filas")
+
+        # --- PASO 3: Búsqueda de Hiperparámetros (usando el set de TRAIN) ---
         self.logger.info("\n" + "="*60)
-        self.logger.info("MODO: BACKTESTING")
+        self.logger.info("MODO: BÚSQUEDA DE HIPERPARÁMETROS (SOBRE TRAIN SET)")
+        self.logger.info("="*60 + "\n")
+        self._run_hyperparameter_tuning(df_train)
+
+        # --- PASO 4: Validación Final (usando el set de TEST) ---
+        self.logger.info("\n" + "="*60)
+        self.logger.info("MODO: VALIDACIÓN FINAL (SOBRE TEST SET)")
         self.logger.info("="*60 + "\n")
         
-        # 1-3. Cargar, limpiar y features
-        df = self._load_data()
-        df_clean = self._clean_data(df)
-        df_features = self._generate_features(df_clean)
+        # Cargar la configuración recién optimizada
+        optimized_config_path = Path(self.config_path).parent / "config_optimizado.yaml"
+        if not optimized_config_path.exists():
+            self.logger.error("No se encontró 'config_optimizado.yaml'. Ejecute el backtest primero.")
+            return
         
-        # 4. Preparar y ejecutar backtest
-        self._run_hyperparameter_tuning(df_features)
+        # Crear un nuevo pipeline temporal para la validación
+        validation_pipeline = TradingPipeline(config_path=str(optimized_config_path))
+        
+        # Preparar datos de test
+        y_test = df_test[target_col]
+        X_test = df_test.drop(columns=[target_col])
+
+        # Evaluar cada modelo habilitado en la config optimizada
+        for model_config in validation_pipeline.config.get("models", []):
+            if not model_config.get("enabled", False):
+                continue
+            
+            model_name = model_config["name"]
+            self.logger.info(f"Validando modelo final: {model_name}")
+            # Aquí iría la lógica para cargar el modelo guardado (.h5, .joblib)
+            # y predecir sobre df_test, luego calcular métricas.
+            # Por simplicidad, re-entrenamos y predecimos en un solo paso.
+            self._validate_model_on_test(model_name, model_config.get("params", {}), df_train, y_test, X_test)
         
         self.logger.info("\n✅ MODO TRAIN COMPLETADO")
 
@@ -224,12 +286,98 @@ class TradingPipeline:
         df = self._load_data()
         df_clean = self._clean_data(df)
         df_features = self._generate_features(df_clean)
+        # 💾 Guardar features para que _find_and_save_best_params pueda reentrenar y guardar modelos
+        self._df_features_last_backtest = df_features.copy()
         
         # 4. Preparar y ejecutar backtest
         self._run_hyperparameter_tuning(df_features)
         
         self.logger.info("\n✅ MODO BACKTEST COMPLETADO")
 
+    def _run_hyperparameter_tuning(self, df_features: pd.DataFrame) -> None:
+        """Realiza la búsqueda de hiperparámetros para cada modelo configurado."""
+        self.logger.info("------------------------------------------------------------")
+        self.logger.info("튜 PASO 4: INICIANDO BÚSQUEDA DE HIPERPARÁMETROS")
+        self.logger.info("------------------------------------------------------------")
+        # Guardamos el dataset de features usado en el backtest
+        # para reentrenar luego los mejores modelos.
+        self._df_features_last_backtest = df_features
+
+        all_results = []
+        models_config = self.config.get("models", [])
+
+        # Recorremos los modelos definidos en config.yaml
+        for model_conf in self.config.get("models", []):
+            model_name = model_conf.get("name")
+            enabled = model_conf.get("enabled", False)
+            param_grid = model_conf.get("param_grid", {})
+
+            if not enabled:
+                self.logger.info(f"🔕 Modelo {model_name} deshabilitado, se omite.")
+                continue
+
+            self.logger.info(f"\n🔥 Procesando modelo: {model_name}")
+
+            # Caso 1: modelo sin grid (solo parámetros fijos)
+            if not param_grid:
+                fixed_params = model_conf.get("params", {})
+                self.logger.info(f"  -> Modelo sin grid, usando params fijos: {fixed_params}")
+
+                predictions, true_values = self._run_walk_forward_for_params(
+                    df_features, model_name, fixed_params
+                )
+
+                if not predictions:
+                    self.logger.warning("    No se generaron predicciones, saltando métricas.")
+                    continue
+
+                metrics = self._calculate_metrics(true_values, predictions)
+                self.logger.info(f"    - Métricas: {metrics}")
+
+                result_row = {"model": model_name, **fixed_params, **metrics}
+                all_results.append(result_row)
+
+                # Guardamos también un 'report' por consistencia
+                self._save_model_report(model_name, [result_row])
+                continue
+
+            # Caso 2: modelo con GridSearch (ParameterGrid)
+            grid = ParameterGrid(param_grid)
+            model_results: list[dict] = []
+
+            for i, params in enumerate(grid):
+                self.logger.info(f"  -> Probando combinación {i+1}/{len(grid)}: {params}")
+
+                # Ejecutar walk-forward para esta combinación
+                predictions, true_values = self._run_walk_forward_for_params(
+                    df_features, model_name, params
+                )
+
+                # Calcular métricas
+                if not predictions:
+                    self.logger.warning("    No se generaron predicciones, saltando métricas.")
+                    continue
+
+                metrics = self._calculate_metrics(true_values, predictions)
+                self.logger.info(f"    - Métricas: {metrics}")
+
+                # Guardar resultado
+                result_row = {"model": model_name, **params, **metrics}
+                model_results.append(result_row)
+                all_results.append(result_row)
+
+            # Guardar reporte detallado para este modelo
+            self._save_model_report(model_name, model_results)
+
+        # Si no hay resultados, abortamos
+        if not all_results:
+            self.logger.error("No se generaron resultados de backtest para ningún modelo.")
+            return
+
+        # Consolidar y guardar la mejor configuración
+        self._find_and_save_best_params(all_results)
+
+    
     def _run_hyperparameter_tuning(self, df_features: pd.DataFrame) -> None:
         """Orquesta el backtesting con búsqueda de hiperparámetros."""
         self.logger.info("튜 PASO 4: INICIANDO BÚSQUEDA DE HIPERPARÁMETROS")
@@ -285,42 +433,308 @@ class TradingPipeline:
 
             # Encontrar los mejores parámetros y guardar config optimizada
             self._find_and_save_best_params(all_results)
-
-    def _find_and_save_best_params(self, all_results: list[dict]):
-        """Encuentra los mejores hiperparámetros y guarda el archivo de config optimizado."""
+    
+    def _run_test_mode(self) -> None:
+        """
+        Modo TEST / VALIDACIÓN:
+        Usa los mejores parámetros (config_optimizado) y evalúa en un hold-out final.
+        """
         self.logger.info("\n" + "="*60)
+        self.logger.info("MODO: TEST / VALIDACIÓN")
+        self.logger.info("="*60 + "\n")
+
+        # 1-3. Cargar, limpiar y features
+        df = self._load_data()
+        df_clean = self._clean_data(df)
+        df_features = self._generate_features(df_clean)
+
+        # 4. Determinar segmento de validación
+        val_cfg = self.config.get("validation", {})
+        mode = val_cfg.get("mode", "last_n")
+        n = int(val_cfg.get("n", 500))
+
+        target_col = self.config.get("backtest", {}).get("target", "Return_1")
+
+        df_processed = df_features.dropna(subset=[target_col]).bfill().ffill()
+        if len(df_processed) <= n + 10:
+            self.logger.error("No hay suficientes datos para una validación con last_n=%s", n)
+            return
+
+        df_train = df_processed.iloc[:-n]
+        df_test = df_processed.iloc[-n:]
+
+        features_cols = [c for c in df_processed.columns if c != target_col]
+        X_train_full = df_train[features_cols]
+        y_train_full = df_train[target_col]
+        X_test_full = df_test[features_cols]
+        y_test_full = df_test[target_col]
+
+        # 5. Mejor modelo desde config_optimizado.yaml (o config actual)
+        best_model_config = self._get_best_model_from_config()
+        if not best_model_config:
+            self.logger.error("No se encontró un modelo con 'params' en la configuración. "
+                            "Ejecuta primero el modo backtest para generar config_optimizado.")
+            return
+
+        model_name = best_model_config["name"]
+        params = best_model_config.get("params", {})
+        self.logger.info(f"Usando mejor modelo '{model_name}' para validación, params={params}")
+
+        # 6. Validación tipo walk-forward sobre df_test
+        all_pred = []
+        all_true = []
+        bt_rows = []
+        close_prices = df_processed["Close"] if "Close" in df_processed.columns else None
+
+        # Entrenamos una vez con df_train completo y vamos moviendo la ventana sobre df_test
+        model_class_map = {
+            "RandomWalk": MomentumModel,
+            "ARIMA": ArimaModel,
+            "PROPHET": ProphetModel,
+            "LSTM": LSTMModel,
+        }
+        model_class = model_class_map.get(model_name)
+        if model_class is None:
+            self.logger.error(f"Modelo '{model_name}' no soportado en modo test.")
+            return
+
+        # Entrenar modelo una vez con todo df_train
+        model_instance = model_class(params=params, logger=self.logger)
+        # Truco: usamos train_and_predict iterativamente con X_test de tamaño 1
+        for ts in X_test_full.index:
+            # Ventana de entrenamiento = todo hasta ts-1
+            mask_train = df_processed.index < ts
+            X_tr = df_processed.loc[mask_train, features_cols]
+            y_tr = df_processed.loc[mask_train, target_col]
+            X_te = df_processed.loc[[ts], features_cols]
+            y_te = df_processed.loc[[ts], target_col]
+
+            pred_list = model_instance.train_and_predict(y_tr, X_tr, X_te)
+            if pred_list is None or len(pred_list) == 0:
+                continue
+
+            pred = float(pred_list[0])
+            true_val = float(y_te.iloc[0])
+
+            all_pred.append(pred)
+            all_true.append(true_val)
+
+            true_sign = np.sign(true_val)
+            pred_sign = np.sign(pred)
+            if pred_sign > 0:
+                signal = "BUY"
+            elif pred_sign < 0:
+                signal = "SELL"
+            else:
+                signal = "HOLD"
+
+            price_prev = price_true = price_pred = delta_price = np.nan
+            if close_prices is not None:
+                pos = df_processed.index.get_loc(ts)
+                if pos > 0:
+                    price_prev = close_prices.iloc[pos - 1]
+                    price_true = close_prices.iloc[pos]
+                    price_pred = float(price_prev * (1.0 + pred))
+                    delta_price = price_pred - price_prev
+
+            bt_rows.append({
+                "timestamp": ts,
+                "y_true": true_val,
+                "y_pred": pred,
+                "direction_true": int(true_sign),
+                "direction_pred": int(pred_sign),
+                "signal": signal,
+                "price_prev": price_prev,
+                "price_true": price_true,
+                "price_pred": price_pred,
+                "delta_price": delta_price,
+            })
+
+        if not all_pred:
+            self.logger.error("No se generaron predicciones en validación.")
+            return
+
+        # 7. Métricas de validación
+        metrics = self._calculate_metrics(all_true, all_pred)
+        self.logger.info(f"📊 Métricas de VALIDACIÓN para {model_name}: {metrics}")
+
+        # 8. Guardar Excel consolidado (detalle + métricas)
+        output_dir = Path(self.config.get("output", {}).get("dir", "outputs")) / "validation"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        xlsx_path = output_dir / "validation_consolidated.xlsx"
+
+        df_bt = pd.DataFrame(bt_rows).set_index("timestamp")
+        df_metrics = pd.DataFrame([metrics])
+
+        with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
+            df_bt.to_excel(writer, sheet_name="detail")
+            df_metrics.to_excel(writer, sheet_name="metrics", index=False)
+
+        self.logger.info(f"💾 Archivo de validación guardado en: {xlsx_path}")
+        self.logger.info("\n✅ MODO TEST / VALIDACIÓN COMPLETADO")
+        
+    def _find_and_save_best_params(self, all_results: list[dict[str, Any]]) -> None:
+        """
+        A partir de todas las combinaciones evaluadas en el backtest:
+        - Identifica la mejor por modelo usando RMSE.
+        - Construye un config_optimizado.yaml con esos mejores modelos.
+        - (Opcional) Reentrena y guarda los modelos finales en outputs/models.
+        """
+        import numpy as np  # por si no está importado arriba
+
+        self.logger.info("\n" + "=" * 60)
         self.logger.info("🏆 ENCONTRANDO MEJORES HIPERPARÁMETROS")
-        self.logger.info("="*60)
+        self.logger.info("=" * 60)
 
-        df_results = pd.DataFrame(all_results)
-        best_params_per_model = {}
+        if not all_results:
+            self.logger.warning("No hay resultados en all_results; nada que optimizar.")
+            return
 
-        for model_name in df_results["model"].unique():
-            model_df = df_results[df_results["model"] == model_name]
-            # Ordenar por RMSE (menor es mejor)
-            best_run = model_df.sort_values(by="rmse", ascending=True).iloc[0]
-            
-            params = {k: v for k, v in best_run.items() if k not in ['model', 'rmse', 'mae', 'hit_rate']}
-            best_params_per_model[model_name] = params
-            
-            self.logger.info(f"  -> Mejor para {model_name}: RMSE={best_run['rmse']:.6f} con params={params}")
+        # 1. Pasar resultados a DataFrame
+        df = pd.DataFrame(all_results)
 
-        # Crear la nueva configuración optimizada
-        new_config = deepcopy(self.config)
-        for i, model_conf in enumerate(new_config["models"]):
-            model_name = model_conf["name"]
-            if model_name in best_params_per_model:
-                # Eliminar param_grid y añadir params fijos
-                if "param_grid" in new_config["models"][i]:
-                    del new_config["models"][i]["param_grid"]
-                new_config["models"][i]["params"] = best_params_per_model[model_name]
+        # Columnas de métricas que NO son hiperparámetros
+        metric_cols = ["rmse", "mae", "hit_rate", "accuracy", "dm_stat", "dm_pvalue"]
 
-        # Guardar el nuevo archivo YAML
-        optimized_config_path = Path(self.config_path).parent / "config_optimizado.yaml"
-        with open(optimized_config_path, 'w', encoding='utf-8') as f:
-            yaml.dump(new_config, f, default_flow_style=False, sort_keys=False)
+        best_models: list[dict[str, Any]] = []
+
+        # Funciones auxiliares
+        def is_nan(v: Any) -> bool:
+            try:
+                return bool(np.isnan(v))
+            except TypeError:
+                return False
+
+        def to_native(v: Any) -> Any:
+            if isinstance(v, (np.floating,)):
+                return float(v)
+            if isinstance(v, (np.integer,)):
+                return int(v)
+            if isinstance(v, (np.bool_,)):
+                return bool(v)
+            return v
+
+        # 2. Por cada modelo (ARIMA, PROPHET, LSTM, etc.) encontrar la mejor fila
+        for model_name, model_df in df.groupby("model"):
+            if "rmse" not in model_df.columns:
+                self.logger.warning(f"  -> El modelo {model_name} no tiene columna 'rmse'; se omite.")
+                continue
+
+            # Índice del run con menor RMSE
+            idx_min = model_df["rmse"].idxmin()
+            best_run = model_df.loc[idx_min]
+
+            # Hiperparámetros = todas las columnas excepto métricas + 'model'
+            param_cols = [c for c in model_df.columns if c not in metric_cols + ["model"]]
+            raw_params = {k: best_run[k] for k in param_cols}
+
+            # Limpio tipos numpy y elimino NaN (params de otros modelos)
+            clean_params = {
+                k: to_native(v)
+                for k, v in raw_params.items()
+                if not is_nan(v)
+            }
+
+            best_rmse = float(best_run["rmse"])
+
+            self.logger.info(f"  -> Mejor para {model_name}: RMSE={best_rmse:.6f} con params={clean_params}")
+
+            best_models.append(
+                {
+                    "name": model_name,
+                    "enabled": True,
+                    "params": clean_params,
+                }
+            )
+
+        if not best_models:
+            self.logger.warning("No se encontró ningún mejor modelo para guardar en config_optimizado.")
+            return
+
+        # 3. Construir config optimizado: copiamos config actual y reemplazamos sólo la sección de modelos
+        optimized_config = dict(self.config)  # copia superficial de dict
+        optimized_config["models"] = best_models
+
+        # 4. Guardar el nuevo archivo YAML en la misma carpeta del config original
+        base_config_path = Path(self.config_path)  # self.config_path es str, lo convertimos a Path
+        optimized_config_path = base_config_path.parent / "config_optimizado.yaml"
+
+        with open(optimized_config_path, "w", encoding="utf-8") as f:
+            yaml.dump(optimized_config, f, default_flow_style=False, sort_keys=False)
+
         self.logger.info(f"\n💾 Configuración optimizada guardada en: {optimized_config_path}")
 
+        # 5. (Opcional, pero recomendado) Reentrenar y guardar modelos finales
+        if self._df_features_last_backtest is None:
+            self.logger.warning(
+                "    -> self._df_features_last_backtest es None. "
+                "No se reentrenan ni se guardan modelos en disco."
+            )
+            return
+
+        target_col = self.config.get("backtest", {}).get("target", "Return_1")
+
+        df_proc = (
+            self._df_features_last_backtest
+            .dropna(subset=[target_col])
+            .bfill()
+            .ffill()
+        )
+
+        if df_proc.empty:
+            self.logger.warning(
+                "    -> self._df_features_last_backtest quedó vacío tras limpiar NaNs. "
+                "No se reentrenan ni se guardan modelos."
+            )
+            return
+
+        X_full = df_proc.drop(columns=[target_col])
+        y_full = df_proc[target_col]
+
+        # Directorio donde se guardarán los modelos
+        models_dir = Path("outputs") / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        # Mapear nombres a clases de modelo
+        model_class_map = {
+            "RandomWalk": MomentumModel,
+            "ARIMA": ArimaModel,
+            "PROPHET": ProphetModel,
+            "LSTM": LSTMModel,
+        }
+        
+        self.logger.info("\n🧠 Reentrenando y guardando modelos óptimos...")
+
+        for m in best_models:
+            name = m["name"]
+            params = m.get("params", {})
+
+            model_class = model_class_map.get(name)
+            if model_class is None:
+                self.logger.warning(f"    -> Modelo '{name}' no está soportado para guardado. Se omite.")
+                continue
+
+            model = model_class(params=params, logger=self.logger)
+            model_name = f"{name.lower()}_best"
+
+            try:
+                # 🔹 Contrato unificado para TODOS los modelos
+                model.train_and_save(
+                    y_train=y_full,
+                    X_train=X_full,
+                    model_name=model_name,
+                    models_dir=models_dir,   # outputs/models
+                )
+                self.logger.info(
+                    f"    ✅ Modelo {name} entrenado y guardado en carpeta: {models_dir} "
+                    f"(nombre base: {model_name})"
+                )
+            except NotImplementedError:
+                self.logger.warning(
+                    f"    ⚠️ El modelo {name} no implementa train_and_save(...). "
+                    "Se omite el guardado en disco."
+                )
+        self.logger.info("\n✅ Proceso de optimización y guardado de modelos completado.")
     def _save_model_report(self, model_name: str, model_results: list[dict]) -> None:
         """Guarda el reporte detallado de un modelo en un archivo CSV."""
         if not model_results:
@@ -353,60 +767,62 @@ class TradingPipeline:
         best_runs.to_csv(summary_path, index=False)
         self.logger.info(f"\n📄 Resumen consolidado de mejores ejecuciones guardado en: {summary_path}")
 
-    def _run_walk_forward_for_params(self, df_features: pd.DataFrame, model_name: str, params: dict) -> tuple[list, list]:
+    def _run_walk_forward_for_params(
+        self,
+        df_features: pd.DataFrame,
+        model_name: str,
+        params: dict
+    ) -> tuple[list, list]:
         """Ejecuta un backtest Walk-Forward para una configuración de modelo específica."""
         backtest_config = self.config.get("backtest", {})
         initial_train_size = backtest_config.get("initial_train", 800)
         step = backtest_config.get("step", 20)
         target_col = backtest_config.get("target", "Return_1")
 
-        # --- Mejora en el manejo de NaNs ---
-        # 1. Eliminar filas donde el TARGET es NaN (crucial)
+        # 1) Eliminar filas donde el target es NaN
         df_processed = df_features.dropna(subset=[target_col])
 
-        # 2. Rellenar NaNs restantes en las FEATURES para no perder datos
-        # bfill() primero para los NaNs iniciales, ffill() para los intermedios.
+        # 2) Rellenar NaNs restantes en las FEATURES
         df_processed = df_processed.bfill().ffill()
 
-        features_cols = [col for col in df_features.columns if col != target_col]
+        features_cols = [col for col in df_processed.columns if col != target_col]
         y = df_processed[target_col]
         X = df_processed[features_cols]
 
         # Validación de datos suficientes
         if initial_train_size >= len(X):
-            self.logger.warning(f"    -> No hay suficientes datos para el backtest con initial_train_size={initial_train_size}. "
-                                f"Datos disponibles después de limpiar NaNs: {len(X)}. Saltando combinación.")
+            self.logger.warning(
+                f"    -> No hay suficientes datos para el backtest con initial_train_size={initial_train_size}. "
+                f"Datos disponibles después de limpiar NaNs: {len(X)}. Saltando combinación."
+            )
             return [], []
 
-
-        all_predictions = []
-        all_true_values = []
+        all_predictions: list = []
+        all_true_values: list = []
 
         for i in range(initial_train_size, len(X), step):
             train_end = i
-            test_end = i + 1  # Predecir un paso a la vez
+            test_end = i + 1  # predecimos un paso a la vez
 
             X_train, X_test = X.iloc[:train_end], X.iloc[train_end:test_end]
             y_train, y_test = y.iloc[:train_end], y.iloc[train_end:test_end]
 
-            if len(X_test) == 0: continue
+            if len(X_test) == 0:
+                continue
 
-            # Entrenar y predecir
-            # --- NUEVO: Log para depurar datos de entrada al modelo ---
-            if self.logger.isEnabledFor(20): # 20 es el nivel de INFO
+            # Log para depurar NaNs
+            if self.logger.isEnabledFor(20):  # INFO
                 nan_in_train = X_train.isnull().sum().sum()
                 self.logger.info(
-                    f"    -> Ventana {i-initial_train_size}: "
-                    f"X_train shape={X_train.shape}, "
-                    f"y_train len={len(y_train)}, "
-                    f"NaNs en X_train={nan_in_train}"
+                    f"    -> Ventana {(i - initial_train_size) // step}: "
+                    f"X_train shape={X_train.shape}, y_train len={len(y_train)}, NaNs en X_train={nan_in_train}"
                 )
-            # --- FIN NUEVO ---
+
             prediction = self._train_and_predict(model_name, params, X_train, y_train, X_test)
-            
+
             if prediction is not None:
                 all_predictions.extend(prediction)
-                all_true_values.extend(y_test.values)
+                all_true_values.extend(list(y_test.values))
 
         return all_predictions, all_true_values
 
@@ -414,7 +830,7 @@ class TradingPipeline:
         """Punto central para entrenar y predecir con un modelo específico."""
         
         model_map = {
-            "RandomWalk": RandomWalkModel,
+            "RandomWalk": MomentumModel, # Lo mantenemos con el nombre original en config.yaml
             "ARIMA": ArimaModel,
             "PROPHET": ProphetModel, # Ahora apunta a la nueva clase
             "LSTM": LSTMModel,
@@ -446,62 +862,303 @@ class TradingPipeline:
         metrics = calculate_all_metrics(y_true, y_pred)
         return {k: round(v, 6) for k, v in metrics.items()}
 
+    def _validate_model_on_test(self, model_name: str, params: dict, df_train: pd.DataFrame, y_test: pd.Series, X_test: pd.DataFrame):
+        """Entrena un modelo con datos de train y lo valida contra test."""
+        target_col = self.config.get("backtest", {}).get("target", "Return_1")
+        
+        # Preparar datos de entrenamiento completos
+        y_train = df_train[target_col]
+        X_train = df_train.drop(columns=[target_col])
+
+        # Entrenar y predecir en el conjunto de test
+        # Para una validación real, se cargaría el modelo guardado.
+        # Aquí, re-entrenamos y predecimos para demostrar el flujo.
+        predictions = self._train_and_predict(model_name, params, X_train, y_train, X_test)
+
+        if predictions is None or len(predictions) != len(y_test):
+            self.logger.error(f"No se pudieron generar predicciones para {model_name} en el set de validación.")
+            return
+
+        # Calcular y mostrar métricas finales
+        final_metrics = self._calculate_metrics(y_test.tolist(), predictions)
+        self.logger.info(f"  -> Métricas finales para {model_name} en Test Set:")
+        for metric, value in final_metrics.items():
+            self.logger.info(f"    - {metric.upper()}: {value}")
+
+
     def _run_production_mode(self) -> None:
         """
-        Modo Producción: Carga los mejores modelos, obtiene datos en tiempo real
-        y genera señales de trading.
+        Modo Producción:
+        - Carga datos recientes desde MT5
+        - Genera features
+        - Carga desde disco los modelos ganadores según la config (config_optimizado.yaml)
+        - Genera una predicción de retorno por modelo
+        - Traduce cada predicción a señal BUY/SELL/HOLD
+        - Calcula precio objetivo, delta de precio y pips
+        - Guarda todo en outputs/production/production_signals.csv
         """
         self.logger.info("\n" + "="*60)
         self.logger.info("MODO: PRODUCCIÓN")
         self.logger.info("="*60 + "\n")
-        
-        # 1-3. Cargar, limpiar y features
-        df = self._load_data()
-        df_clean = self._clean_data(df)
+
+        # 1) Cargar / limpiar / generar features
+        self.logger.info("📥 Cargando datos para producción...")
+        df_raw = self._load_data()
+        df_clean = self._clean_data(df_raw)
         df_features = self._generate_features(df_clean)
 
-        # 4. Cargar el mejor modelo y predecir
-        self.logger.info("🔮 Generando predicción para producción...")
-        
-        # Identificar el mejor modelo general desde el archivo de config
-        # (asumiendo que config_optimizado.yaml está siendo usado)
-        best_model_config = self._get_best_model_from_config()
-        if not best_model_config:
-            self.logger.error("No se pudo determinar el mejor modelo desde la configuración. Ejecute el backtest primero.")
+        target_col = self.config.get("backtest", {}).get("target", "Return_1")
+
+        # Quitamos filas sin target ni features
+        feature_cols = [c for c in df_features.columns if c != target_col]
+        df_processed = df_features.dropna(subset=[target_col] + feature_cols)
+
+        if df_processed.empty:
+            self.logger.error("No hay datos suficientes después del procesamiento para producción.")
             return
 
-        model_name = best_model_config["name"]
-        params = best_model_config.get("params", {})
+        X_all = df_processed[feature_cols]
 
-        self.logger.info(f"Usando el modelo '{model_name}' con parámetros: {params}")
+        # 2) Leemos TODOS los modelos habilitados en la config
+        models_cfg = self.config.get("models", [])
+        enabled_models_cfg = [m for m in models_cfg if m.get("enabled", True)]
 
-        # Preparar datos: todo el dataset es para "entrenar" y predecir el siguiente paso
-        target_col = self.config.get("backtest", {}).get("target", "Return_1")
-        features_cols = [col for col in df_features.columns if col != target_col]
-        df_processed = df_features.dropna(subset=[target_col] + features_cols)
-        
-        y_train = df_processed[target_col]
-        X_train = df_processed[features_cols]
+        if not enabled_models_cfg:
+            self.logger.error(
+                "No hay modelos habilitados en la configuración. Revisa la sección 'models' del YAML."
+            )
+            return
 
-        # Crear un X_test dummy para el horizonte de predicción
-        horizon = self.config.get("backtest", {}).get("horizon", 1)
-        X_test_dummy = pd.DataFrame(index=range(horizon))
-
-        prediction = self._train_and_predict(model_name, params, X_train, y_train, X_test_dummy)
-
-        if prediction:
-            self.logger.info(f"📈 Predicción generada: {prediction}")
-            # Aquí iría la lógica para guardar la predicción o generar una señal
+        # Determinar el modelo campeón global (usa la lógica existente)
+        best_model_config = self._get_best_model_from_config()
+        best_model_name = None
+        if best_model_config:
+            best_model_name = str(best_model_config.get("name", "")).upper()
+            self.logger.info(
+                f"🏆 Modelo campeón global según backtest / RMSE: {best_model_name}"
+            )
         else:
-            self.logger.error("Falló la generación de la predicción.")
+            self.logger.warning(
+                "No se pudo determinar un modelo campeón global con _get_best_model_from_config()."
+            )
 
-        self.logger.info("\n✅ MODO PRODUCCIÓN COMPLETADO")
+        # 3) Intentamos cargar las métricas del backtest (summary_best_runs.csv)
+        metrics_by_model: dict[str, dict[str, float]] = {}
+        backtest_dir = Path(self.config.get("output", {}).get("dir", "outputs")) / "backtest"
+        summary_path = backtest_dir / "summary_best_runs.csv"
+
+        if summary_path.exists():
+            try:
+                df_best = pd.read_csv(summary_path)
+                metric_cols = ["rmse", "mae", "hit_rate", "accuracy", "dm_stat", "dm_pvalue"]
+                for model_name in df_best["model"].unique():
+                    sub = df_best[df_best["model"] == model_name]
+                    # Tomamos la fila con menor RMSE
+                    idx_min = sub["rmse"].idxmin()
+                    row = sub.loc[idx_min]
+                    metrics_by_model[str(model_name).upper()] = {
+                        col: float(row[col]) if col in row and pd.notna(row[col]) else None
+                        for col in metric_cols
+                        if col in row
+                    }
+            except Exception as e:
+                self.logger.error(
+                    f"No se pudieron cargar métricas desde {summary_path}: {e}"
+                )
+        else:
+            self.logger.warning(
+                f"No se encontró {summary_path}; no se agregarán métricas de backtest al CSV de producción."
+            )
+
+        # 4) Mapa nombre -> clase de modelo
+        model_map = {
+            "ARIMA": ArimaModel,
+            "PROPHET": ProphetModel,
+            "LSTM": LSTMModel,
+            "RANDOMWALK": MomentumModel,
+        }
+
+        # Directorio donde están los modelos guardados
+        models_dir = Path(self.config.get("output", {}).get("dir", "outputs")) / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        # Datos comunes para todas las filas de salida
+        last_row = df_processed.iloc[-1]
+        price_now = last_row["Close"] if "Close" in last_row else np.nan
+
+        # tamaño de pip (puedes definirlo en config.data.pip_size)
+        pip_size = self.config.get("data", {}).get("pip_size", None)
+        if pip_size is None:
+            symbol = self.config.get("data", {}).get("symbol", "")
+            if len(symbol) == 6 and symbol.isalpha():
+                pip_size = 0.0001  # típico FX
+            else:
+                pip_size = 0.01    # por ejemplo índices/ETFs
+        pip_size = float(pip_size)
+
+        rows = []
+
+        self.logger.info("🔎 Generando señales de producción para TODOS los modelos habilitados...\n")
+
+        for m_cfg in enabled_models_cfg:
+            model_name = str(m_cfg.get("name", "UNKNOWN"))
+            params = m_cfg.get("params", {})
+            model_name_upper = model_name.upper()
+
+            self.logger.info(f"➡ Procesando modelo: {model_name} | params={params}")
+
+            model_class = model_map.get(model_name_upper)
+            if model_class is None:
+                self.logger.error(f"  ✗ No hay clase asociada al modelo '{model_name}'. Se omite.")
+                continue
+
+            model_instance = model_class(params=params, logger=self.logger)
+
+            # Convención: LSTM -> .keras, resto -> .pkl
+            file_prefix = f"{model_name.lower()}_best"
+            if model_name_upper == "LSTM":
+                model_path = models_dir / f"{file_prefix}.keras"
+            else:
+                model_path = models_dir / f"{file_prefix}.pkl"
+
+            self.logger.info(f"  💾 Intentando cargar el modelo desde: {model_path}")
+
+            if not hasattr(model_instance, "load_model") or not hasattr(model_instance, "predict_loaded"):
+                self.logger.error(
+                    f"  ✗ El modelo {model_name} no implementa 'load_model' o 'predict_loaded'. Se omite."
+                )
+                continue
+
+            if not model_path.exists():
+                self.logger.error(
+                    f"  ✗ El archivo de modelo {model_path} no existe. Se omite."
+                )
+                continue
+
+            # Cargar modelo
+            try:
+                model_instance.load_model(model_path)
+            except Exception as e:
+                self.logger.error(
+                    f"  ✗ No se pudo cargar el modelo {model_name} desde disco: {e}"
+                )
+                continue
+
+            # Predecir
+            try:
+                prediction = model_instance.predict_loaded(X_all)
+            except Exception as e:
+                self.logger.error(
+                    f"  ✗ Error al predecir con el modelo cargado {model_name}: {e}"
+                )
+                continue
+
+            if prediction is None or len(prediction) == 0:
+                self.logger.error(
+                    f"  ✗ El modelo {model_name} no devolvió ninguna predicción. Se omite."
+                )
+                continue
+
+            # Tomamos la última predicción como "próximo" retorno
+            pred_return = float(prediction[-1])
+
+            # Señal BUY / SELL / HOLD
+            if pred_return > 0:
+                signal = "BUY"
+            elif pred_return < 0:
+                signal = "SELL"
+            else:
+                signal = "HOLD"
+
+            # Precio objetivo y delta
+            if not np.isnan(price_now):
+                price_target = price_now * (1.0 + pred_return)
+                delta_price = price_target - price_now
+                pips = delta_price / pip_size
+            else:
+                price_target = np.nan
+                delta_price = np.nan
+                pips = np.nan
+
+            # Métricas de backtest (si existen)
+            m_metrics = metrics_by_model.get(model_name_upper, {})
+            rmse = m_metrics.get("rmse")
+            mae = m_metrics.get("mae")
+            hit_rate = m_metrics.get("hit_rate")
+            accuracy = m_metrics.get("accuracy")
+            dm_stat = m_metrics.get("dm_stat")
+            dm_pvalue = m_metrics.get("dm_pvalue")
+
+            is_best = (model_name_upper == best_model_name)
+
+            self.logger.info(
+                f"  📈 Modelo {model_name} -> retorno={pred_return:.6f}, "
+                f"signal={signal}, price_now={price_now}, "
+                f"price_target={price_target}, delta_price={delta_price}, pips={pips}, "
+                f"is_best_model={is_best}"
+            )
+
+            row = {
+                "timestamp": df_processed.index[-1],
+                "symbol": self.config.get("data", {}).get("symbol", "UNKNOWN"),
+                "timeframe": self.config.get("data", {}).get("timeframe", "UNKNOWN"),
+                "model": model_name,
+                "pred_return": pred_return,
+                "signal": signal,
+                "entry_price": price_now,
+                "price_target": price_target,
+                "delta_price": delta_price,
+                "pips": pips,
+                "is_best_model": is_best,
+                # Métricas de backtest (pueden ser None si no hay summary_best_runs)
+                "rmse_backtest": rmse,
+                "mae_backtest": mae,
+                "hit_rate_backtest": hit_rate,
+                "accuracy_backtest": accuracy,
+                "dm_stat_backtest": dm_stat,
+                "dm_pvalue_backtest": dm_pvalue,
+            }
+
+            rows.append(row)
+
+        if not rows:
+            self.logger.error("No se generó ninguna señal de producción (todas fallaron).")
+            return
+
+        df_rows = pd.DataFrame(rows)
+
+        # 7) Guardar las señales en CSV
+        output_dir = Path(self.config.get("output", {}).get("dir", "outputs")) / "production"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = output_dir / "production_signals.csv"
+
+        if csv_path.exists():
+            df_rows.to_csv(csv_path, mode="a", header=False, index=False)
+        else:
+            df_rows.to_csv(csv_path, index=False)
+
+        self.logger.info(f"\n💾 Señales de producción guardadas en: {csv_path}")
+        self.logger.info("✅ MODO PRODUCCIÓN COMPLETADO\n")
 
     def _get_best_model_from_config(self) -> dict | None:
-        """Identifica el mejor modelo de la config (el primero con 'params')."""
-        for model_config in self.config.get("models", []):
-            if model_config.get("enabled", False) and "params" in model_config:
-                return model_config
+        """
+        Identifica el mejor modelo según la config.
+        Prioridad:
+        1) Modelo con is_best: true y enabled.
+        2) Primer modelo enabled que tenga 'params'.
+        """
+        models = self.config.get("models", [])
+
+        # 1) Buscar marcado como is_best
+        for m in models:
+            if m.get("enabled", True) and m.get("is_best", False):
+                return m
+
+        # 2) Fallback: primer modelo enabled con params
+        for m in models:
+            if m.get("enabled", True) and "params" in m:
+                return m
+
         return None
 
     def _run_clear_cache_mode(self) -> None:
@@ -643,7 +1300,7 @@ class TradingPipeline:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline de Trading Algorítmico.")
     parser.add_argument("--mode", type=str, default="eda", 
-                        choices=["eda", "train", "backtest", "production", "clear_cache"],
+                        choices=["eda", "train", "backtest","production", "test", "clear_cache"],
                         help="Modo de ejecución del pipeline.")
     parser.add_argument("--config", type=str, default="config/config.yaml",
                         help="Ruta al archivo de configuración YAML.")

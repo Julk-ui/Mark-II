@@ -9,6 +9,10 @@ mt5:
   server: "RoboForex-Pro"
   path: "C:\\Program Files\\RoboForex - MetaTrader 5\\terminal64.exe"
 
+validation:
+  mode: last_n
+  n: 500
+
 # --- DATOS ---
 data:
   symbol: "EURUSD"
@@ -16,6 +20,7 @@ data:
   n_bars: 1500
   use_cache: false
   cache_expiry_hours: 24
+  pip_size: 0.0001
   
   # Símbolos adicionales (para análisis multi-activo)
   additional_symbols:
@@ -81,11 +86,11 @@ features:
 # --- MODELOS ---
 models:
   - name: RandomWalk
-    enabled: true
+    enabled: false
     # Modelo base sin parámetros
 
   - name: ARIMA
-    enabled: false
+    enabled: true
     # Rejilla de parámetros para Grid Search.
     # El pipeline probará todas las combinaciones posibles.
     param_grid:
@@ -107,18 +112,27 @@ models:
       use_lagged_regressors: [true] # <-- AÑADIR ESTA LÍNEA
     
   - name: LSTM
-    enabled: false
+    enabled: true
     param_grid:
-      window: [30]              # Ventana de lookback
-      units: [64]          # Neuronas en capa LSTM
-      dropout: [0.2]
-      epochs: [50]
-      batch_size: [32]
-      learning_rate: [0.001]
+      # --- Grid Search Reducido (~2 horas) ---
+      window: [20, 40]                # Probar ventana corta y larga
+      learning_rate: [0.001]          # Tasa de aprendizaje fija por ahora
+      
+      # --- Arquitectura del Modelo ---
+      architecture: ["stacked_lstm", "bidirectional_lstm"] # Probar diferentes arquitecturas
+      n_layers: [1, 2]                # Probar con 1 o 2 capas LSTM
+      units: [32, 96]                 # Probar con pocas y muchas neuronas
+      dropout: [0.2]                  # Tasa de dropout fija
+
+      # --- Parámetros de Entrenamiento ---
+      epochs: [50]                    # Épocas fijas
+      batch_size: [32]                # Tamaño de lote fijo
+      early_stopping_patience: [10]   # Implementar Early Stopping para evitar sobreajuste y ahorrar tiempo
+
 
 # --- BACKTESTING ---
 backtest:
-  enabled: false
+  enabled: true
   initial_train: 800          # Datos para entrenamiento inicial
   step: 60                    # Paso de rolling window (aumentado)
   horizon: 1                  # Horizonte de predicción
@@ -150,14 +164,14 @@ output:
 # --- LOGGING ---
 logging:
   enabled: true
-  level: "ERROR"              # DEBUG, INFO, WARNING, ERROR
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
   to_file: true
   file_path: "logs/trading.log"
   to_console: true
 
 # --- EJECUCIÓN ---
 execution:
-  mode: "eda"                 # eda, train, backtest, production
+  mode: "backtest"            # eda, train, backtest, production
   parallel: false             # Ejecutar modelos en paralelo
   n_jobs: -1                  # -1 para usar todos los cores
 
